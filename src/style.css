@@ -31,10 +31,30 @@ body {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
-  gap: 1.5rem;
+  padding: max(1rem, env(safe-area-inset-top))
+    max(1.25rem, env(safe-area-inset-right))
+    max(0.75rem, env(safe-area-inset-bottom))
+    max(1.25rem, env(safe-area-inset-left));
+  gap: 1rem;
+}
+
+.disclaimer {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.75rem 1.25rem max(0.75rem, env(safe-area-inset-bottom));
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+  letter-spacing: 0.02em;
 }
 
 h1 {
@@ -46,7 +66,7 @@ h1 {
 
 .sphere {
   position: relative;
-  width: min(280px, 70vw);
+  width: min(240px, 62vw);
   aspect-ratio: 1;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #2a2a3a, #0d0d14 70%);
@@ -57,6 +77,19 @@ h1 {
   align-items: center;
   justify-content: center;
   isolation: isolate;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+.sphere--ready {
+  cursor: pointer;
+}
+
+.sphere--ready:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
 }
 
 .sphere::before {
@@ -168,16 +201,6 @@ h1 {
 .sphere__answer--ready .sphere__answer-text {
   color: #c8d4f0;
   text-shadow: 0 0 12px rgba(140, 170, 255, 0.35);
-}
-
-.meta {
-  margin: -0.75rem 0 0;
-  min-height: 1.125rem;
-  font-size: 0.8125rem;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  text-align: center;
 }
 
 .controls {
@@ -309,4 +332,72 @@ button.secondary {
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
+}
+
+.recent {
+  width: min(360px, 100%);
+  margin-top: 0.25rem;
+}
+
+.recent__summary {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.recent__summary::-webkit-details-marker {
+  display: none;
+}
+
+.recent__hint {
+  margin: 0.5rem 0 0.75rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.recent__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.recent__item {
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid #2a2a38;
+}
+
+.recent__question,
+.recent__reply,
+.recent__meta {
+  margin: 0;
+}
+
+.recent__question {
+  font-size: 0.8125rem;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.recent__reply {
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #c8d4f0;
+}
+
+.recent__meta {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
 }
