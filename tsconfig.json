@@ -8,5 +8,5 @@
     "noEmit": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
-  "include": ["src", "server", "api", "vite.config.ts"]
+  "include": ["src", "server", "netlify", "vite.config.ts"]
 }

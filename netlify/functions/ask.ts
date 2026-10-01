@@ -1,8 +1,5 @@
-import { handleAskRequest } from "../server/ask";
-
-export const config = {
-  runtime: "edge",
-};
+import type { Config } from "@netlify/functions";
+import { handleAskRequest } from "../../server/ask";
 
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== "POST") {
@@ -30,3 +27,8 @@ export default async function handler(request: Request): Promise<Response> {
     headers: { "Content-Type": "application/json" },
   });
 }
+
+export const config: Config = {
+  path: "/api/ask",
+  method: "POST",
+};

@@ -8,6 +8,8 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@netlify/functions": "^6.0.2",
+    "@netlify/vite-plugin": "^3.0.1",
     "@types/node": "^22.10.5",
     "typescript": "^5.7.3",
     "vite": "^6.0.7"
