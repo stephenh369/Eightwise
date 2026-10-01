@@ -29,7 +29,7 @@ app.innerHTML = `
           </label>
           <label class="mode-toggle__option">
             <input type="radio" name="mode" value="noul" />
-            <span>Yes/No %</span>
+            <span>Yes/No</span>
           </label>
         </div>
       </fieldset>
@@ -49,7 +49,6 @@ app.innerHTML = `
     </div>
     <details class="recent" id="recent" hidden>
       <summary class="recent__summary">Recent</summary>
-      <p class="recent__hint">Use 20 real questions, then decide keep / kill / niche-pivot.</p>
       <ul class="recent__list" id="recent-list"></ul>
     </details>
   </main>

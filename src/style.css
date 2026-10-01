@@ -351,13 +351,6 @@ button.secondary {
   display: none;
 }
 
-.recent__hint {
-  margin: 0.5rem 0 0.75rem;
-  font-size: 0.75rem;
-  color: var(--muted);
-  line-height: 1.4;
-}
-
 .recent__list {
   margin: 0;
   padding: 0;

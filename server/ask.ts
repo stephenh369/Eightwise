@@ -2,118 +2,111 @@ import {
   APIConnectionError,
   APIError,
   AuthenticationError,
-  choice,
   noul,
   TypeSafeClient,
 } from "@typesafe-ai/sdk";
 
 const UPSTREAM_TIMEOUT_MS = 9_000;
 
+/** Minimum P(yes) that `question` reads as a single yes/no proposition. */
+const YES_NO_FORM_THRESHOLD = 0.5;
+
 const REPLIES = {
-  it_is_certain: {
-    text: "It is certain.",
-    criteria:
-      "Stock reply: It is certain. The asked outcome is effectively guaranteed.",
-  },
-  without_a_doubt: {
-    text: "Without a doubt.",
-    criteria:
-      "Stock reply: Without a doubt. There is no serious room for a no.",
-  },
-  yes_definitely: {
-    text: "Yes, definitely.",
-    criteria: "Stock reply: Yes, definitely. A direct, emphatic yes.",
-  },
-  you_may_rely_on_it: {
-    text: "You may rely on it.",
-    criteria:
-      "Stock reply: You may rely on it. The asker can treat yes as dependable.",
-  },
-  as_i_see_it_yes: {
-    text: "As I see it, yes.",
-    criteria:
-      "Stock reply: As I see it, yes. A reasoned yes, not an absolute guarantee.",
-  },
-  most_likely: {
-    text: "Most likely.",
-    criteria:
-      "Stock reply: Most likely. Yes is probable, with some remaining chance of no.",
-  },
-  outlook_good: {
-    text: "Outlook good.",
-    criteria:
-      "Stock reply: Outlook good. Conditions look favorable without being certain.",
-  },
-  signs_point_to_yes: {
-    text: "Signs point to yes.",
-    criteria:
-      "Stock reply: Signs point to yes. Available signals lean yes; the case is not closed.",
-  },
-  yes: {
-    text: "Yes.",
-    criteria: "Stock reply: Yes. A plain yes with no extra emphasis.",
-  },
-  absolutely_lean_in: {
-    text: "Absolutely, lean in.",
-    criteria:
-      "Stock reply: Absolutely, lean in. An enthusiastic yes; the asker should go for it.",
-  },
-  reply_hazy_try_again: {
-    text: "Reply hazy, try again.",
-    criteria:
-      "Stock reply: Reply hazy, try again. The question is too vague or muddled to answer as yes or no.",
-  },
-  ask_again_later: {
-    text: "Ask again later.",
-    criteria:
-      "Stock reply: Ask again later. The outcome depends on information not available yet.",
-  },
-  better_not_tell_you_now: {
-    text: "Better not tell you now.",
-    criteria:
-      "Stock reply: Better not tell you now. Answering now would be premature or unhelpful.",
-  },
-  cannot_predict_now: {
-    text: "Cannot predict now.",
-    criteria:
-      "Stock reply: Cannot predict now. The situation is genuinely unpredictable from the question alone.",
-  },
-  concentrate_and_ask_again: {
-    text: "Concentrate and ask again.",
-    criteria:
-      "Stock reply: Concentrate and ask again. The asker needs a clearer, more specific yes/no question.",
-  },
-  dont_count_on_it: {
-    text: "Don't count on it.",
-    criteria:
-      "Stock reply: Don't count on it. Hoping for yes is unwise; disappointment is likely.",
-  },
-  my_reply_is_no: {
-    text: "My reply is no.",
-    criteria: "Stock reply: My reply is no. A direct no.",
-  },
-  outlook_not_so_good: {
-    text: "Outlook not so good.",
-    criteria:
-      "Stock reply: Outlook not so good. Conditions look unfavorable without being a hard no.",
-  },
-  very_doubtful: {
-    text: "Very doubtful.",
-    criteria: "Stock reply: Very doubtful. A yes would be surprising.",
-  },
-  no_sit_this_one_out: {
-    text: "No, sit this one out.",
-    criteria:
-      "Stock reply: No, sit this one out. A clear no with gentle advice to abstain.",
-  },
+  it_is_certain: { text: "It is certain." },
+  without_a_doubt: { text: "Without a doubt." },
+  yes_definitely: { text: "Yes, definitely." },
+  you_may_rely_on_it: { text: "You may rely on it." },
+  as_i_see_it_yes: { text: "As I see it, yes." },
+  most_likely: { text: "Most likely." },
+  outlook_good: { text: "Outlook good." },
+  signs_point_to_yes: { text: "Signs point to yes." },
+  yes: { text: "Yes." },
+  absolutely_lean_in: { text: "Absolutely, lean in." },
+  reply_hazy_try_again: { text: "Reply hazy, try again." },
+  ask_again_later: { text: "Ask again later." },
+  better_not_tell_you_now: { text: "Better not tell you now." },
+  cannot_predict_now: { text: "Cannot predict now." },
+  concentrate_and_ask_again: { text: "Concentrate and ask again." },
+  dont_count_on_it: { text: "Don't count on it." },
+  my_reply_is_no: { text: "My reply is no." },
+  outlook_not_so_good: { text: "Outlook not so good." },
+  very_doubtful: { text: "Very doubtful." },
+  no_sit_this_one_out: { text: "No, sit this one out." },
 } as const;
 
 type ReplyId = keyof typeof REPLIES;
 
-const REPLY_IDS = Object.keys(REPLIES) as ReplyId[];
-const REPLY_CRITERIA = Object.fromEntries(
-  REPLY_IDS.map((id) => [id, REPLIES[id].criteria]),
-) as { [K in ReplyId]: string };
+const HAZY_REPLY_IDS: ReplyId[] = [
+  "reply_hazy_try_again",
+  "ask_again_later",
+  "better_not_tell_you_now",
+  "cannot_predict_now",
+  "concentrate_and_ask_again",
+];
+
+/** Map P(yes) to classic reply bands (8-ball tone, not epistemic refusal). */
+const STANCE_BANDS: { max: number; ids: ReplyId[] }[] = [
+  {
+    max: 0.12,
+    ids: ["very_doubtful", "my_reply_is_no"],
+  },
+  {
+    max: 0.28,
+    ids: ["dont_count_on_it", "outlook_not_so_good", "no_sit_this_one_out"],
+  },
+  {
+    max: 0.42,
+    ids: ["outlook_not_so_good", "dont_count_on_it", "very_doubtful"],
+  },
+  {
+    max: 0.58,
+    ids: ["as_i_see_it_yes", "most_likely", "yes", "signs_point_to_yes"],
+  },
+  {
+    max: 0.72,
+    ids: ["outlook_good", "signs_point_to_yes", "most_likely", "as_i_see_it_yes"],
+  },
+  {
+    max: 0.85,
+    ids: [
+      "you_may_rely_on_it",
+      "absolutely_lean_in",
+      "most_likely",
+      "outlook_good",
+    ],
+  },
+  {
+    max: 0.94,
+    ids: ["yes_definitely", "without_a_doubt", "you_may_rely_on_it"],
+  },
+  {
+    max: 1,
+    ids: ["it_is_certain", "without_a_doubt", "yes_definitely"],
+  },
+];
+
+function pickRandom<T>(items: readonly T[]): T {
+  return items[Math.floor(Math.random() * items.length)]!;
+}
+
+export function classicReplyFromSignals(
+  yesNoForm: number,
+  pYes: number,
+): { id: ReplyId; probability: number } {
+  if (yesNoForm < YES_NO_FORM_THRESHOLD) {
+    return {
+      id: pickRandom(HAZY_REPLY_IDS),
+      probability: yesNoForm,
+    };
+  }
+  for (const band of STANCE_BANDS) {
+    if (pYes <= band.max) {
+      return { id: pickRandom(band.ids), probability: pYes };
+    }
+  }
+  const last = STANCE_BANDS[STANCE_BANDS.length - 1]!;
+  return { id: pickRandom(last.ids), probability: pYes };
+}
 
 export type AskSuccessBody = {
   ok: true;
@@ -173,24 +166,33 @@ function mapUpstreamError(error: unknown): AskResult {
   return { status: 502, body: { error: "upstream_unavailable" } };
 }
 
+const CLASSIC_QUESTIONS = {
+  yes_no_form: noul("Is `question` a single clear yes-or-no question?", {
+    true: "One yes/no proposition, even if the asker's private facts are unknown.",
+    false: "Vague, compound, open-ended, or not reducible to yes/no.",
+  }),
+  stance: noul(
+    "For a toy magic 8-ball responding to `question`, is yes the better answer?",
+    {
+      true: "Yes is the better 8-ball answer from how the question is framed; missing personal facts are not a reason to stay neutral.",
+      false: "No is the better 8-ball answer from how the question is framed; missing personal facts are not a reason to stay neutral.",
+    },
+  ),
+} as const;
+
 async function handleClassicAsk(
   client: TypeSafeClient,
   question: string,
 ): Promise<AskResult> {
   const response = await client.systemOne({
     state: { question },
-    questions: {
-      reply: choice(
-        "Which stock Eightwise reply should appear for `question`?",
-        REPLY_CRITERIA,
-      ),
-    },
+    questions: CLASSIC_QUESTIONS,
   });
 
-  const { reply } = response.answers;
-  const id = reply.choice as ReplyId;
+  const yesNoForm = response.answers.yes_no_form.noul;
+  const pYes = response.answers.stance.noul;
+  const { id, probability } = classicReplyFromSignals(yesNoForm, pYes);
   const answer = REPLIES[id].text;
-  const probability = reply.probabilities[id] ?? reply.probabilities[reply.choice];
 
   return { status: 200, body: { ok: true, answer, probability } };
 }
