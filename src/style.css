@@ -187,6 +187,70 @@ h1 {
   gap: 0.75rem;
 }
 
+.mode-toggle {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.mode-toggle__legend {
+  font-size: 0.875rem;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+  padding: 0;
+}
+
+.mode-toggle__group {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid #2a2a38;
+}
+
+.mode-toggle__option {
+  flex: 1;
+  display: block;
+  cursor: pointer;
+}
+
+.mode-toggle__option input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.mode-toggle__option span {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: center;
+  color: var(--muted);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.mode-toggle__option input:checked + span {
+  background: var(--accent);
+  color: #fff;
+}
+
+.mode-toggle__option input:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.mode-toggle:disabled .mode-toggle__option {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 label {
   font-size: 0.875rem;
   color: var(--muted);

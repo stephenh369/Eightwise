@@ -12,6 +12,19 @@ app.innerHTML = `
   </div>
   <p class="meta" id="result-meta" hidden></p>
   <div class="controls">
+    <fieldset class="mode-toggle" id="mode-toggle">
+      <legend class="mode-toggle__legend">Answer style</legend>
+      <div class="mode-toggle__group" role="radiogroup" aria-label="Answer style">
+        <label class="mode-toggle__option">
+          <input type="radio" name="mode" value="classic" checked />
+          <span>Classic 20</span>
+        </label>
+        <label class="mode-toggle__option">
+          <input type="radio" name="mode" value="noul" />
+          <span>Yes/No %</span>
+        </label>
+      </div>
+    </fieldset>
     <label for="question">Your question</label>
     <input
       id="question"
@@ -35,6 +48,10 @@ const statusEl = document.querySelector<HTMLParagraphElement>("#status")!;
 const sphereWindow = document.querySelector<HTMLParagraphElement>("#sphere-window")!;
 const sphereAnswer = document.querySelector<HTMLDivElement>("#sphere-answer")!;
 const resultMeta = document.querySelector<HTMLParagraphElement>("#result-meta")!;
+const modeToggle = document.querySelector<HTMLFieldSetElement>("#mode-toggle")!;
+const modeInputs = modeToggle.querySelectorAll<HTMLInputElement>('input[name="mode"]');
+
+type AskMode = "classic" | "noul";
 
 type AskSuccessBody = {
   ok: true;
@@ -54,8 +71,33 @@ function isValidProbability(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
 }
 
-function formatResultMeta(latencyMs: number, probability: number): string {
-  return `${Math.round(latencyMs)}ms · ${probability.toFixed(2)}`;
+function getSelectedMode(): AskMode {
+  const checked = modeToggle.querySelector<HTMLInputElement>('input[name="mode"]:checked');
+  return checked?.value === "noul" ? "noul" : "classic";
+}
+
+function formatResultMeta(
+  latencyMs: number,
+  probability: number,
+  mode: AskMode,
+): string {
+  const ms = `${Math.round(latencyMs)}ms`;
+  if (mode === "noul") {
+    return `${ms} · P(yes) ${probability.toFixed(2)}`;
+  }
+  return `${ms} · ${probability.toFixed(2)}`;
+}
+
+function clearResult() {
+  sphereWindow.textContent = "Ask below";
+  sphereAnswer.classList.remove("sphere__answer--ready");
+  clearResultMeta();
+  retryButton.hidden = true;
+  setStatus("");
+}
+
+function setModeToggleDisabled(disabled: boolean) {
+  modeToggle.disabled = disabled;
 }
 
 function setStatus(message: string, isError = false) {
@@ -80,12 +122,14 @@ async function submitQuestion(question: string) {
 
   inFlight = true;
   lastQuestion = trimmed;
+  const mode = getSelectedMode();
   retryButton.hidden = true;
   setStatus("Thinking…");
   sphereWindow.textContent = "…";
   sphereAnswer.classList.remove("sphere__answer--ready");
   clearResultMeta();
   updateAskEnabled();
+  setModeToggleDisabled(true);
 
   const t0 = performance.now();
 
@@ -93,7 +137,7 @@ async function submitQuestion(question: string) {
     const response = await fetch("/api/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question: trimmed }),
+      body: JSON.stringify({ question: trimmed, mode }),
     });
 
     const data = (await response.json()) as AskSuccessBody & { error?: string };
@@ -122,7 +166,7 @@ async function submitQuestion(question: string) {
     sphereAnswer.classList.add("sphere__answer--ready");
 
     if (isValidProbability(data.probability)) {
-      resultMeta.textContent = formatResultMeta(latencyMs, data.probability);
+      resultMeta.textContent = formatResultMeta(latencyMs, data.probability, mode);
       resultMeta.hidden = false;
     } else {
       clearResultMeta();
@@ -134,6 +178,7 @@ async function submitQuestion(question: string) {
     clearResultMeta();
   } finally {
     inFlight = false;
+    setModeToggleDisabled(false);
     updateAskEnabled();
   }
 }
@@ -146,6 +191,8 @@ function friendlyError(code: string): string {
       return "The server is not configured yet.";
     case "upstream_unavailable":
       return "Could not reach the decision service. Try again.";
+    case "invalid_mode":
+      return "Invalid answer style. Try again.";
     default:
       return "Something went wrong. Try again.";
   }
@@ -164,5 +211,13 @@ questionInput.addEventListener("keydown", (event) => {
     void submitQuestion(questionInput.value);
   }
 });
+
+for (const input of modeInputs) {
+  input.addEventListener("change", () => {
+    if (!inFlight) {
+      clearResult();
+    }
+  });
+}
 
 updateAskEnabled();

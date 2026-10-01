@@ -3,6 +3,7 @@ import {
   APIError,
   AuthenticationError,
   choice,
+  noul,
   TypeSafeClient,
 } from "@typesafe-ai/sdk";
 
@@ -126,25 +127,97 @@ export type AskResult = {
   body: AskSuccessBody | AskErrorBody;
 };
 
+export type AskMode = "classic" | "noul";
+
 function normalizeQuestion(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const trimmed = raw.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
 
-export function parseAskBody(raw: unknown): { question: string } | AskResult {
+function parseMode(raw: unknown): AskMode | AskResult {
+  if (raw === undefined || raw === null) {
+    return "classic";
+  }
+  if (raw === "classic" || raw === "noul") {
+    return raw;
+  }
+  return { status: 400, body: { error: "invalid_mode" } };
+}
+
+export function parseAskBody(
+  raw: unknown,
+): { question: string; mode: AskMode } | AskResult {
   if (raw === null || typeof raw !== "object") {
     return { status: 400, body: { error: "invalid_body" } };
   }
-  const question = normalizeQuestion((raw as { question?: unknown }).question);
+  const body = raw as { question?: unknown; mode?: unknown };
+  const question = normalizeQuestion(body.question);
   if (!question) {
     return { status: 400, body: { error: "empty_question" } };
   }
-  return { question };
+  const mode = parseMode(body.mode);
+  if (typeof mode !== "string") {
+    return mode;
+  }
+  return { question, mode };
+}
+
+function mapUpstreamError(error: unknown): AskResult {
+  if (error instanceof AuthenticationError) {
+    return { status: 500, body: { error: "proxy_misconfigured" } };
+  }
+  if (error instanceof APIError || error instanceof APIConnectionError) {
+    return { status: 502, body: { error: "upstream_unavailable" } };
+  }
+  return { status: 502, body: { error: "upstream_unavailable" } };
+}
+
+async function handleClassicAsk(
+  client: TypeSafeClient,
+  question: string,
+): Promise<AskResult> {
+  const response = await client.systemOne({
+    state: { question },
+    questions: {
+      reply: choice(
+        "Which stock Eightwise reply should appear for `question`?",
+        REPLY_CRITERIA,
+      ),
+    },
+  });
+
+  const { reply } = response.answers;
+  const id = reply.choice as ReplyId;
+  const answer = REPLIES[id].text;
+  const probability = reply.probabilities[id] ?? reply.probabilities[reply.choice];
+
+  return { status: 200, body: { ok: true, answer, probability } };
+}
+
+async function handleNoulAsk(
+  client: TypeSafeClient,
+  question: string,
+): Promise<AskResult> {
+  const response = await client.systemOne({
+    state: { question },
+    questions: {
+      yes: noul("Is the answer to `question` yes?", {
+        true: "Yes is the better answer.",
+        false: "No is the better answer.",
+      }),
+    },
+  });
+
+  const pYes = response.answers.yes.noul;
+  const answer = pYes >= 0.5 ? "Yes" : "No";
+
+  return { status: 200, body: { ok: true, answer, probability: pYes } };
 }
 
 export async function handleAsk(
   question: string,
+  mode: AskMode,
   apiKey: string | undefined,
 ): Promise<AskResult> {
   if (!apiKey?.trim()) {
@@ -159,30 +232,12 @@ export async function handleAsk(
   });
 
   try {
-    const response = await client.systemOne({
-      state: { question },
-      questions: {
-        reply: choice(
-          "Which stock Eightwise reply should appear for `question`?",
-          REPLY_CRITERIA,
-        ),
-      },
-    });
-
-    const { reply } = response.answers;
-    const id = reply.choice as ReplyId;
-    const answer = REPLIES[id].text;
-    const probability = reply.probabilities[id] ?? reply.probabilities[reply.choice];
-
-    return { status: 200, body: { ok: true, answer, probability } };
+    if (mode === "noul") {
+      return await handleNoulAsk(client, question);
+    }
+    return await handleClassicAsk(client, question);
   } catch (error) {
-    if (error instanceof AuthenticationError) {
-      return { status: 500, body: { error: "proxy_misconfigured" } };
-    }
-    if (error instanceof APIError || error instanceof APIConnectionError) {
-      return { status: 502, body: { error: "upstream_unavailable" } };
-    }
-    return { status: 502, body: { error: "upstream_unavailable" } };
+    return mapUpstreamError(error);
   }
 }
 
@@ -194,5 +249,5 @@ export async function handleAskRequest(
   if ("status" in parsed) {
     return parsed;
   }
-  return handleAsk(parsed.question, apiKey);
+  return handleAsk(parsed.question, parsed.mode, apiKey);
 }
