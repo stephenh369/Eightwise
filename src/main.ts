@@ -10,6 +10,7 @@ app.innerHTML = `
       <p class="sphere__answer-text" id="sphere-window">Ask below</p>
     </div>
   </div>
+  <p class="meta" id="result-meta" hidden></p>
   <div class="controls">
     <label for="question">Your question</label>
     <input
@@ -33,9 +34,29 @@ const retryButton = document.querySelector<HTMLButtonElement>("#retry")!;
 const statusEl = document.querySelector<HTMLParagraphElement>("#status")!;
 const sphereWindow = document.querySelector<HTMLParagraphElement>("#sphere-window")!;
 const sphereAnswer = document.querySelector<HTMLDivElement>("#sphere-answer")!;
+const resultMeta = document.querySelector<HTMLParagraphElement>("#result-meta")!;
+
+type AskSuccessBody = {
+  ok: true;
+  answer: string;
+  probability: number;
+};
 
 let lastQuestion = "";
 let inFlight = false;
+
+function clearResultMeta() {
+  resultMeta.textContent = "";
+  resultMeta.hidden = true;
+}
+
+function isValidProbability(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
+function formatResultMeta(latencyMs: number, probability: number): string {
+  return `${Math.round(latencyMs)}ms · ${probability.toFixed(2)}`;
+}
 
 function setStatus(message: string, isError = false) {
   statusEl.textContent = message;
@@ -63,7 +84,10 @@ async function submitQuestion(question: string) {
   setStatus("Thinking…");
   sphereWindow.textContent = "…";
   sphereAnswer.classList.remove("sphere__answer--ready");
+  clearResultMeta();
   updateAskEnabled();
+
+  const t0 = performance.now();
 
   try {
     const response = await fetch("/api/ask", {
@@ -72,17 +96,14 @@ async function submitQuestion(question: string) {
       body: JSON.stringify({ question: trimmed }),
     });
 
-    const data = (await response.json()) as {
-      ok?: boolean;
-      error?: string;
-      answer?: string;
-    };
+    const data = (await response.json()) as AskSuccessBody & { error?: string };
 
     if (!response.ok) {
       const code = data.error ?? "request_failed";
       setStatus(friendlyError(code), true);
       sphereWindow.textContent = "Try again";
       retryButton.hidden = false;
+      clearResultMeta();
       return;
     }
 
@@ -90,16 +111,27 @@ async function submitQuestion(question: string) {
       setStatus(friendlyError("request_failed"), true);
       sphereWindow.textContent = "Try again";
       retryButton.hidden = false;
+      clearResultMeta();
       return;
     }
+
+    const latencyMs = performance.now() - t0;
 
     setStatus("");
     sphereWindow.textContent = data.answer;
     sphereAnswer.classList.add("sphere__answer--ready");
+
+    if (isValidProbability(data.probability)) {
+      resultMeta.textContent = formatResultMeta(latencyMs, data.probability);
+      resultMeta.hidden = false;
+    } else {
+      clearResultMeta();
+    }
   } catch {
     setStatus("Network error — check your connection.", true);
     sphereWindow.textContent = "Try again";
     retryButton.hidden = false;
+    clearResultMeta();
   } finally {
     inFlight = false;
     updateAskEnabled();
