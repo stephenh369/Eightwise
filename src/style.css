@@ -1,0 +1,238 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    sans-serif;
+  line-height: 1.5;
+  --bg: #0a0a0f;
+  --surface: #14141c;
+  --text: #e8e8ef;
+  --muted: #8888a0;
+  --accent: #6b8cff;
+  --danger: #f07070;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+#app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  gap: 1.5rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.sphere {
+  position: relative;
+  width: min(280px, 70vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #2a2a3a, #0d0d14 70%);
+  box-shadow:
+    inset 0 -8px 24px rgba(0, 0, 0, 0.6),
+    0 12px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+}
+
+.sphere::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 35% 28%,
+    rgba(255, 255, 255, 0.14) 0%,
+    transparent 42%
+  );
+  z-index: 2;
+}
+
+.sphere::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow:
+    inset 0 -18px 36px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  z-index: 2;
+}
+
+.sphere__answer {
+  position: relative;
+  z-index: 3;
+  width: 56%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  padding: 1.1rem 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: radial-gradient(
+    circle at 38% 32%,
+    #1c1c28 0%,
+    #0e0e16 48%,
+    #050508 100%
+  );
+  box-shadow:
+    inset 0 12px 32px rgba(0, 0, 0, 0.95),
+    inset 0 -4px 12px rgba(255, 255, 255, 0.025),
+    0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+
+.sphere__answer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 2px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 3px rgba(255, 255, 255, 0.035);
+}
+
+.sphere__answer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 36% 30%,
+    rgba(120, 130, 170, 0.12) 0%,
+    transparent 38%
+  );
+  mix-blend-mode: soft-light;
+}
+
+.sphere__answer-text {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  width: 88%;
+  font-size: clamp(0.75rem, 3vw, 0.875rem);
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.02em;
+  color: #7a8498;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+}
+
+.sphere__answer--ready {
+  background: radial-gradient(
+    circle at 38% 32%,
+    #1e2030 0%,
+    #10121c 48%,
+    #06060e 100%
+  );
+  box-shadow:
+    inset 0 12px 32px rgba(0, 0, 0, 0.9),
+    inset 0 0 28px rgba(90, 120, 200, 0.16),
+    inset 0 -4px 12px rgba(255, 255, 255, 0.03),
+    0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+
+.sphere__answer--ready .sphere__answer-text {
+  color: #c8d4f0;
+  text-shadow: 0 0 12px rgba(140, 170, 255, 0.35);
+}
+
+.controls {
+  width: min(360px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+label {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #2a2a38;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1rem;
+}
+
+input[type="text"]:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+button {
+  padding: 0.875rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid #2a2a38;
+}
+
+.status {
+  min-height: 1.25rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.status--error {
+  color: var(--danger);
+}
+
+.status-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
